@@ -289,7 +289,7 @@ Object.assign(ACT, {
   copyCodeRaw: d => copyText(fmtCode(d.code)),
   shareCode: async d => {
     const c = clsById(d.id); if (!c) return;
-    const text = `Entre na turma “${c.name}” no Organizador Escolar.\nCódigo: ${fmtCode(c.invite_code)}\n(peça a senha ao administrador)\n${location.origin}`;
+    const text = `Entre na turma “${c.name}” no Lume.\nCódigo: ${fmtCode(c.invite_code)}\n(peça a senha ao administrador)\n${location.origin}`;
     try { if (navigator.share) await navigator.share({ title: 'Convite para a turma', text }); else await copyText(text); } catch (e) { if (e.name !== 'AbortError') copyText(text); }
   },
   newPost: d => { closeSheet(true); openPostForm(d.id, null); },

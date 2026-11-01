@@ -507,8 +507,8 @@ VIEWS.settings = () => {
     <p class="small muted">O JSON e o CSV trazem só os dados das atividades. O backup completo inclui disciplinas, atividades, configurações e os arquivos anexados.</p>
     <button class="btn block ghost-danger" data-a="wipe">Apagar todos os dados</button></div>
   <h2>Dados antigos</h2><div class="card small"><span class="muted">Se você usou o app antes de existirem as contas, os dados daquela época podem estar neste aparelho.</span><div class="grid2" style="margin-top:10px"><button class="btn" data-a="legacyImport">Importar dados antigos</button><button class="btn ghost-danger" data-a="legacyRemove">Remover do aparelho</button></div></div>
-  <h2>Créditos</h2><div class="card credits"><div class="muted small">Idealizado e criado por</div><div class="credit-name">Bruno Gordiano</div><div class="muted small">Organizador Escolar · versão 2.1</div></div>
-  <h2>Sobre</h2><div class="card small"><b>Organizador Escolar</b> · versão 2.1<br><span class="muted">Seus dados ficam na sua conta (nuvem) e uma cópia é guardada neste aparelho para funcionar sem internet. Alterações feitas offline são enviadas quando a conexão voltar. Arquivos novos só chegam à nuvem quando houver internet.</span></div>`;
+  <h2>Créditos</h2><div class="card credits"><div class="muted small">Idealizado e criado por</div><div class="credit-name">Bruno Gordiano</div><div class="muted small">Lume · versão 2.1</div></div>
+  <h2>Sobre</h2><div class="card small"><b>Lume</b> · organizador escolar · versão 2.1<br><span class="muted">Seus dados ficam na sua conta (nuvem) e uma cópia é guardada neste aparelho para funcionar sem internet. Alterações feitas offline são enviadas quando a conexão voltar. Arquivos novos só chegam à nuvem quando houver internet.</span></div>`;
   return { title: 'Perfil e ajustes', html };
 };
 

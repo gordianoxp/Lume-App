@@ -29,7 +29,7 @@ const Auth = (() => {
       <div class="auth-links"><button class="link" data-a="authGo" data-m="login">Voltar</button></div>`;
     else if (mode === 'reset') body = `<form id="auth-form" novalidate><p class="muted small">Escolha uma nova senha para a sua conta.</p>${msgHtml()}${field('au-pass', 'Nova senha (mínimo 8 caracteres)', 'password', 'autocomplete="new-password" required')}${field('au-pass2', 'Confirmar nova senha', 'password', 'autocomplete="new-password" required')}${btn('Salvar nova senha', 'Salvando…')}</form>`;
     else if (mode === 'sent') body = `${msgHtml()}<div class="auth-links" style="justify-content:center"><button class="btn" data-a="authGo" data-m="login">Ir para o login</button></div>`;
-    box().innerHTML = `<div class="auth-wrap"><div class="auth-brand"><img src="icons/icon-192.png" alt="" width="64" height="64"><h1>Organizador Escolar</h1></div><div class="card auth-card"><h2>${titles[mode]}</h2>${body}</div><p class="auth-credit">Criado por Bruno Gordiano</p></div>`;
+    box().innerHTML = `<div class="auth-wrap"><div class="auth-brand"><img src="icons/icon-192.png" alt="" width="64" height="64"><h1>Lume</h1><p class="auth-tag">Organizador escolar</p></div><div class="card auth-card"><h2>${titles[mode]}</h2>${body}</div><p class="auth-credit">Criado por Bruno Gordiano</p></div>`;
     const first = box().querySelector('input'); if (first && mode !== 'sent') setTimeout(() => first.focus(), 50);
   }
 

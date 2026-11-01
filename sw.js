@@ -1,6 +1,6 @@
 /* Service worker: faz o app abrir sem internet. Guarda só os arquivos do próprio app e a biblioteca do Supabase.
    NUNCA intercepta chamadas à API do Supabase (login, banco, arquivos): elas sempre vão direto à rede. */
-const CACHE = 'organizador-v4';
+const CACHE = 'lume-v6';
 const CDN = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js';
 const SHELL = ['index.html', 'styles.css', 'config.js', 'db.js', 'util.js', 'notify.js', 'cloud.js', 'app.js', 'auth.js', 'classes.js',
   'manifest.webmanifest', 'icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png'];

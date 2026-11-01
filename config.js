@@ -4,6 +4,6 @@
    No Netlify, o build preenche este arquivo a partir das variáveis SUPABASE_URL e SUPABASE_ANON_KEY
    (veja SETUP.md). Se você publica arrastando a pasta, edite os valores abaixo. */
 window.APP_CONFIG = {
-  supabaseUrl: 'https://lfzfcthgyxyvbsjibuqd.supabase.co/rest/v1/',
-  supabaseAnonKey: 'sb_publishable_0dfDO8q6C-_ej4aWmMcnQg_jn6gr6mJ'
+  supabaseUrl: 'https://lfzfcthgyxyvbsjibuqd.supabase.co/rest/v1/,
+  supabaseAnonKey: 'https://lfzfcthgyxyvbsjibuqd.supabase.co/rest/v1/'
 };

@@ -200,3 +200,4 @@ textarea{min-height:80px;resize:vertical}
 .credits{text-align:center;padding:18px}
 .credit-name{font-size:20px;font-weight:800;margin:4px 0 6px;letter-spacing:.2px}
 .auth-credit{text-align:center;margin:18px 0 0;font-size:12px;color:var(--muted)}
+.auth-tag{margin:2px 0 0;color:var(--muted);font-size:14px;text-align:center}
