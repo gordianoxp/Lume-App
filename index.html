@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#4f46e5">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Escola">
+<meta name="format-detection" content="telephone=no">
+<title>Organizador Escolar</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="app">
+  <header id="topbar"></header>
+  <main id="view"><div class="loading">Carregando…</div></main>
+  <nav id="nav" aria-label="Navegação principal"></nav>
+</div>
+<div id="auth" class="auth-layer" hidden></div>
+<div id="sheet" class="layer"></div>
+<div id="dialog" class="layer"></div>
+<div id="toasts" aria-live="polite"></div>
+<!-- A ordem importa: configuração → biblioteca do Supabase → módulos do app (app.js antes de auth.js e classes.js) -->
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js" crossorigin="anonymous"></script>
+<script src="db.js"></script>
+<script src="util.js"></script>
+<script src="notify.js"></script>
+<script src="cloud.js"></script>
+<script src="app.js"></script>
+<script src="auth.js"></script>
+<script src="classes.js"></script>
+</body>
+</html>
