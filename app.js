@@ -66,6 +66,37 @@ function dialog({ title, msg, actions }) {
 }
 const confirmDlg = (title, msg, label = 'Excluir') => dialog({ title, msg, actions: [{ label, kind: 'danger', value: true }, { label: 'Cancelar', value: null }] });
 
+/* ===================== Foto de perfil ===================== */
+function avatarHTML(userId, size, name) {
+  const p = state.profiles.find(x => x.id === userId); const nm = name || (p && p.display_name) || '';
+  return `<span class="av" style="--s:${size || 44}px" data-av="${esc(userId)}" role="img" aria-label="Foto de ${esc(nm || 'participante')}">${esc((nm.trim()[0] || '?').toUpperCase())}</span>`;
+}
+function hydrateAvatars(root) {
+  (root || document).querySelectorAll('.av[data-av]').forEach(el => {
+    const p = state.profiles.find(x => x.id === el.dataset.av);
+    if (!p || !p.avatar_path || el.querySelector('img')) return;
+    Cloud.avatarUrl(p.avatar_path).then(url => {
+      if (!url || !el.isConnected || el.querySelector('img')) return;
+      const im = new Image(); im.alt = ''; im.onload = () => { el.textContent = ''; el.appendChild(im); }; im.src = url;
+    }).catch(() => { /* fica com a inicial */ });
+  });
+}
+async function prepAvatar(file) {
+  if (!file || !/^image\//.test(file.type)) throw new Error('Escolha um arquivo de imagem (JPG, PNG ou WebP).');
+  if (file.size > 20 * 1024 * 1024) throw new Error('Esta imagem é muito grande (máximo 20 MB).');
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(new Error('Não foi possível ler esta imagem. Tente um JPG ou PNG.')); i.src = url; });
+    const side = Math.min(img.naturalWidth, img.naturalHeight), S = 320;
+    if (!side) throw new Error('Imagem inválida.');
+    const cv = document.createElement('canvas'); cv.width = cv.height = S;
+    cv.getContext('2d').drawImage(img, (img.naturalWidth - side) / 2, (img.naturalHeight - side) / 2, side, side, 0, 0, S, S);
+    const blob = await new Promise(r => cv.toBlob(r, 'image/jpeg', 0.85));
+    if (!blob) throw new Error('Não foi possível preparar a imagem.');
+    return blob;
+  } finally { URL.revokeObjectURL(url); }
+}
+
 function openSheet(html) {
   const o = $('#sheet');
   o.innerHTML = `<div class="sheet-back" data-a="closeSheet"></div><div class="sheet" role="dialog" aria-modal="true">${html}</div>`;
@@ -73,6 +104,7 @@ function openSheet(html) {
   document.body.classList.add('noscroll');
   if (!state.sheetOpen) { history.pushState({ sheet: 1 }, '', location.href); state.sheetPushed = true; }
   state.sheetOpen = true;
+  hydrateAvatars(o);
 }
 function hideSheetUI() {
   const o = $('#sheet');
@@ -108,6 +140,7 @@ function render() {
   const v = (VIEWS[r.name] || VIEWS.home)(r.arg);
   $('#topbar').innerHTML = `${v.back ? `<button class="icon-btn" data-a="back" aria-label="Voltar">${ICON.back}</button>` : ''}<h1>${esc(v.title)}</h1>${syncChipHTML()}${v.actions !== undefined ? v.actions : `<button class="icon-btn" data-a="go" data-to="search" aria-label="Buscar">${ICON.search}</button>`}`;
   view.innerHTML = v.html;
+  hydrateAvatars(view);
   view.scrollTop = state.routeChanged ? 0 : keep;
   const tab = TAB[r.name] || 'home';
   const items = [['home', 'Início', ICON.home], ['calendar', 'Calendário', ICON.calendar], ['add', 'Adicionar', ICON.plus], ['classes', 'Turmas', ICON.users], ['settings', 'Perfil', ICON.user]];
@@ -454,7 +487,9 @@ VIEWS.settings = () => {
   const prof = state.profiles.find(p => p.id === (state.user && state.user.id));
   const myName = (prof && prof.display_name) || (state.user && state.user.name) || '';
   const cs = Cloud.status;
-  const html = `<h2>Conta</h2><div class="card"><div style="font-weight:700;font-size:17px;overflow-wrap:anywhere">${esc(myName || 'Sem nome')}</div><div class="muted small" style="overflow-wrap:anywhere">${esc((state.user && state.user.email) || '')}</div>
+  const html = `<h2>Conta</h2><div class="card"><div class="row" style="gap:14px;align-items:center">${avatarHTML(state.user && state.user.id, 72, myName)}<div class="grow" style="min-width:0"><div style="font-weight:700;font-size:17px;overflow-wrap:anywhere">${esc(myName || 'Sem nome')}</div><div class="muted small" style="overflow-wrap:anywhere">${esc((state.user && state.user.email) || '')}</div></div></div>
+    <div class="grid2" style="margin-top:12px"><button class="btn" data-a="pickAvatar">${prof && prof.avatar_path ? 'Trocar foto' : 'Adicionar foto'}</button>${prof && prof.avatar_path ? '<button class="btn ghost-danger" data-a="removeAvatar">Remover foto</button>' : ''}</div><input type="file" id="av-file" accept="image/*" hidden>
+    <p class="small muted" style="margin:6px 0 0">Sua foto é visível para você e para quem participa das mesmas turmas que você.</p>
     <div class="row" style="margin:10px 0 0;gap:8px;flex-wrap:wrap"><span class="sync-chip ${syncKind()}" style="cursor:default">${syncChipInner()}</span></div>
     ${cs.error ? `<p class="small" style="color:var(--danger);margin:8px 0 0">${esc(cs.error)}</p>` : ''}
     <div class="grid2" style="margin-top:12px"><button class="btn" data-a="syncNow">Sincronizar agora</button><button class="btn" data-a="editName">Alterar nome</button><button class="btn" data-a="changePass">Alterar senha</button><button class="btn" data-a="signOut">Sair da conta</button></div>
@@ -472,7 +507,8 @@ VIEWS.settings = () => {
     <p class="small muted">O JSON e o CSV trazem só os dados das atividades. O backup completo inclui disciplinas, atividades, configurações e os arquivos anexados.</p>
     <button class="btn block ghost-danger" data-a="wipe">Apagar todos os dados</button></div>
   <h2>Dados antigos</h2><div class="card small"><span class="muted">Se você usou o app antes de existirem as contas, os dados daquela época podem estar neste aparelho.</span><div class="grid2" style="margin-top:10px"><button class="btn" data-a="legacyImport">Importar dados antigos</button><button class="btn ghost-danger" data-a="legacyRemove">Remover do aparelho</button></div></div>
-  <h2>Sobre</h2><div class="card small"><b>Organizador Escolar</b> · versão 2.0<br><span class="muted">Seus dados ficam na sua conta (nuvem) e uma cópia é guardada neste aparelho para funcionar sem internet. Alterações feitas offline são enviadas quando a conexão voltar. Arquivos novos só chegam à nuvem quando houver internet.</span></div>`;
+  <h2>Créditos</h2><div class="card credits"><div class="muted small">Idealizado e criado por</div><div class="credit-name">Bruno Gordiano</div><div class="muted small">Organizador Escolar · versão 2.1</div></div>
+  <h2>Sobre</h2><div class="card small"><b>Organizador Escolar</b> · versão 2.1<br><span class="muted">Seus dados ficam na sua conta (nuvem) e uma cópia é guardada neste aparelho para funcionar sem internet. Alterações feitas offline são enviadas quando a conexão voltar. Arquivos novos só chegam à nuvem quando houver internet.</span></div>`;
   return { title: 'Perfil e ajustes', html };
 };
 
@@ -935,6 +971,11 @@ const ACT = {
   retryFailed: async () => { await Cloud.retryFailed(); render(); },
   legacyImport: () => Migrate.manual(),
   legacyRemove: () => Migrate.removeLegacy(),
+  pickAvatar: () => { const f = $('#av-file'); if (f) f.click(); },
+  removeAvatar: async () => {
+    if (!await confirmDlg('Remover foto?', 'Você volta a aparecer com a inicial do seu nome.', 'Remover')) return;
+    try { await Cloud.removeAvatar(); await Cloud.sync(); await refresh(); toast('Foto removida.'); } catch (e) { toast(errMsg(e), { err: true }); }
+  },
   editName: () => {
     const prof = state.profiles.find(p => p.id === state.user.id);
     state.form = { type: 'name' };
@@ -993,6 +1034,12 @@ function bindEvents() {
   document.addEventListener('change', async e => {
     const t = e.target;
     if (t.matches('input[data-a=toggleCheck]')) return ACT.toggleCheck(t.dataset, e);
+    if (t.id === 'av-file') {
+      const f = t.files && t.files[0]; t.value = ''; if (!f) return;
+      try { const blob = await prepAvatar(f); toast('Enviando foto…'); await Cloud.uploadAvatar(blob); await Cloud.sync(); await refresh(); toast('Foto atualizada.'); }
+      catch (err) { toast(errMsg(err), { err: true }); }
+      return;
+    }
     if (t.id === 'f-type') { $('#f-type-new-wrap').hidden = t.value !== '__new'; return; }
     if (t.id === 'f-rem-on') { $('#f-rem-box').style.opacity = t.checked ? 1 : .45; return; }
     if (t.id === 'up-subj') return populateUpAct();

@@ -104,7 +104,7 @@ function postCard(p, first) {
   return `<div class="item post ${first ? 'hl' : ''}" style="--c:${esc(p.subject_color || '#64748b')}"><div class="item-main" data-a="postDetail" data-id="${p.id}">
     <div class="item-title">${esc(p.title)}</div>
     <div class="item-meta"><span class="dot"></span>${esc(p.subject_name || 'Sem disciplina')} · <span class="${late ? 'late' : ''}">${late ? 'Prazo passou · ' : ''}${fmtRel(d)}</span></div>
-    <div class="item-meta">Publicado por <b>${esc(nameOf(p.author_id))}</b> em ${fmtDate(new Date(p.created_at))}${edited ? ` · editado em ${fmtDate(new Date(p.updated_at))}` : ''}</div>
+    <div class="item-meta">Publicado por ${avatarHTML(p.author_id, 20)} <b>${esc(nameOf(p.author_id))}</b> em ${fmtDate(new Date(p.created_at))}${edited ? ` · editado em ${fmtDate(new Date(p.updated_at))}` : ''}</div>
     <div class="badges">${nf ? `<span class="badge">${ICON.clip}${nf}</span>` : ''}${mine ? '<span class="badge low">✓ Na sua agenda</span>' : ''}${first ? '<span class="badge high">Próxima entrega</span>' : ''}</div></div>
     <div class="post-act">${mine ? `<button class="btn sm" data-a="openAgendaAct" data-id="${mine.id}">Abrir</button>` : `<button class="btn sm primary" data-a="addToAgenda" data-id="${p.id}">Adicionar à minha agenda</button>`}</div></div>`;
 }
@@ -125,7 +125,7 @@ function peopleHTML(c) {
   const ms = state.members.filter(m => m.class_id === c.id).sort((a, b) => (a.role === b.role ? nameOf(a.user_id).localeCompare(nameOf(b.user_id), 'pt-BR') : a.role === 'admin' ? -1 : 1));
   let h = `<div class="small muted" style="margin-bottom:8px">${ms.length} participante${ms.length === 1 ? '' : 's'}</div>` + ms.map(m => {
     const me = m.user_id === state.user.id;
-    return `<div class="frow"><div class="ext" style="background:var(--primary);border-radius:50%">${esc(nameOf(m.user_id).slice(0, 1).toUpperCase())}</div><div class="grow"><div style="font-weight:600;overflow-wrap:anywhere">${esc(nameOf(m.user_id))}${me ? ' <span class="muted small">(você)</span>' : ''}</div><div class="small muted">Desde ${fmtDate(new Date(m.joined_at))}</div></div>${roleBadge(m.role)}
+    return `<div class="frow">${avatarHTML(m.user_id, 44)}<div class="grow"><div style="font-weight:600;overflow-wrap:anywhere">${esc(nameOf(m.user_id))}${me ? ' <span class="muted small">(você)</span>' : ''}</div><div class="small muted">Desde ${fmtDate(new Date(m.joined_at))}</div></div>${roleBadge(m.role)}
       ${admin && !me ? `<button class="ibtn" data-a="memberMenu" data-c="${c.id}" data-u="${m.user_id}" aria-label="Opções de ${esc(nameOf(m.user_id))}">⋯</button>` : ''}</div>`;
   }).join('');
   h += `<button class="btn block ghost-danger" style="margin-top:14px" data-a="leaveClass" data-id="${c.id}">Sair da turma</button>`;

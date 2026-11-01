@@ -207,11 +207,47 @@ const Cloud = (() => {
       if (error) throw new Error(friendly(error));
     },
 
+    /* ------------------------------------------------ foto de perfil ------------------------------------------------ */
+    async uploadAvatar(blob) {
+      if (!isOnline()) throw new Error('Trocar a foto exige conexão com a internet.');
+      const old = (state.profiles.find(p => p.id === user.id) || {}).avatar_path;
+      const path = `a/${user.id}/${uid().replace(/-/g, '')}`;
+      const up = await client.storage.from('files').upload(path, blob, { upsert: false, contentType: 'image/jpeg' });
+      if (up.error) throw new Error(friendly(up.error));
+      const r = await client.from('profiles').update({ avatar_path: path }).eq('id', user.id);
+      if (r.error) { try { await client.storage.from('files').remove([path]); } catch (e) { /* ignorado */ } throw new Error(friendly(r.error)); }
+      if (old) { try { await client.storage.from('files').remove([old]); } catch (e) { /* ignorado */ } }
+      return path;
+    },
+    async removeAvatar() {
+      if (!isOnline()) throw new Error('Remover a foto exige conexão com a internet.');
+      const old = (state.profiles.find(p => p.id === user.id) || {}).avatar_path;
+      const r = await client.from('profiles').update({ avatar_path: null }).eq('id', user.id);
+      if (r.error) throw new Error(friendly(r.error));
+      if (old) { try { await client.storage.from('files').remove([old]); } catch (e) { /* ignorado */ } }
+    },
+    /** Devolve um blob: URL da foto (cache em memória e no aparelho, para funcionar offline). */
+    async avatarUrl(path) {
+      if (!path) return null;
+      if (avatarCache.has(path)) return avatarCache.get(path);
+      let blob = null;
+      try { const c = await DB.get('meta', 'av:' + path); blob = c && c.value; } catch (e) { /* sem cache */ }
+      if (!blob) {
+        if (!isOnline()) return null;
+        const { data, error } = await client.storage.from('files').download(path);
+        if (error || !data) return null;
+        blob = data;
+        try { await DB.put('meta', { key: 'av:' + path, value: blob }, { local: true }); } catch (e) { /* opcional */ }
+      }
+      const url = URL.createObjectURL(blob); avatarCache.set(path, url); return url;
+    },
+
     /* ------------------------------------------------ turmas (todas exigem conexão) ------------------------------------------------ */
     async rpc(name, args) { if (!isOnline()) { const e = new Error('Esta ação exige conexão com a internet.'); e.transient = true; throw e; } return ok(await client.rpc(name, args)); },
     async table(fn) { if (!isOnline()) { const e = new Error('Esta ação exige conexão com a internet.'); e.transient = true; throw e; } return ok(await fn(client)); }
   };
 
+  const avatarCache = new Map();
   function scheduleSync(ms) { clearTimeout(debounce); debounce = setTimeout(() => api.sync(), ms); }
 
   function startRealtime() {
@@ -342,7 +378,7 @@ const Cloud = (() => {
     const [classes, members, profiles, posts, postfiles] = await Promise.all([
       fetchAll(() => client.from('classes').select('*')),
       fetchAll(() => client.from('class_members').select('*')),
-      fetchAll(() => client.from('profiles').select('id,display_name')),
+      fetchAll(() => client.from('profiles').select('id,display_name,avatar_path')),
       fetchAll(() => client.from('posts').select('*')),
       fetchAll(() => client.from('post_files').select('*'))
     ]);
