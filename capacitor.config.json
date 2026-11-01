@@ -1,0 +1,9 @@
+{
+  "appId": "br.com.organizador.escolar",
+  "appName": "Escola",
+  "webDir": "www",
+  "ios": {
+    "contentInset": "never",
+    "scrollEnabled": false
+  }
+}

@@ -1,0 +1,5 @@
+# Netlify: publica a pasta "www". O comando de build só grava www/config.js a partir das variáveis
+# SUPABASE_URL e SUPABASE_ANON_KEY (se existirem). Cabeçalhos de segurança ficam em www/_headers.
+[build]
+  publish = "www"
+  command = "node scripts/make-config.mjs"
