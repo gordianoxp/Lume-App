@@ -142,15 +142,39 @@ function render() {
   view.innerHTML = v.html;
   hydrateAvatars(view);
   view.scrollTop = state.routeChanged ? 0 : keep;
+  view.dataset.v = r.name;
   const tab = TAB[r.name] || 'home';
   const items = [['home', 'Início', ICON.home], ['calendar', 'Calendário', ICON.calendar], ['add', 'Adicionar', ICON.plus], ['classes', 'Turmas', ICON.users], ['settings', 'Perfil', ICON.user]];
-  $('#nav').innerHTML = items.map(([k, l, i]) => k === 'add'
-    ? `<button class="nb add" data-a="openAdd" aria-label="Adicionar"><span class="plus">${i}</span><span>${l}</span></button>`
-    : `<button class="nb ${tab === k ? 'on' : ''}" data-a="go" data-to="${k}" ${tab === k ? 'aria-current="page"' : ''}>${i}<span>${l}</span></button>`).join('');
+  const side = [['activities/pending', 'Pendentes', ICON.list], ['upcoming', 'Próximas entregas', ICON.clock], ['files', 'Meus arquivos', ICON.folder], ['progress', 'Progresso', ICON.chart], ['history', 'Histórico', ICON.history], ['focus', 'Modo foco', ICON.focus]];
+  const sideOn = to => { const [n, a] = to.split('/'); return r.name === n && (!a || r.arg === a || (n === 'activities' && L.filter === a)); };
+  $('#nav').innerHTML = `<div class="brand"><img src="icons/icon-192.png" alt="" width="38" height="38"><span>Lume</span></div>`
+    + items.map(([k, l, i]) => k === 'add'
+      ? `<button class="nb add" data-a="openAdd" aria-label="Adicionar"><span class="plus">${i}</span><span>${l}</span></button>`
+      : `<button class="nb ${tab === k ? 'on' : ''}" data-a="go" data-to="${k}" ${tab === k ? 'aria-current="page"' : ''}>${i}<span>${l}</span></button>`).join('')
+    + `<div class="nav-sec">Atividades e mais</div>`
+    + side.map(([to, l, i]) => `<button class="nb sec ${sideOn(to) ? 'on' : ''}" data-a="go" data-to="${to}">${i}<span>${l}</span></button>`).join('');
   if (v.after) v.after();
 }
 
 const emptyState = (icon, title, text, btn = '') => `<div class="empty"><div class="big">${icon}</div><b>${esc(title)}</b>${esc(text)}${btn}</div>`;
+
+/* ---------- agrupamento por dia (usado em Pendentes, Próximas entregas, Hoje, Atrasadas…) ---------- */
+function dayInfo(d, pending) {
+  const diff = Math.round((sod(d) - sod(new Date())) / DAY), now = new Date();
+  const wd = `${DIAS_LONGO[d.getDay()]}, ${pad(d.getDate())}/${pad(d.getMonth() + 1)}${d.getFullYear() !== now.getFullYear() ? '/' + d.getFullYear() : ''}`;
+  const rel = diff === 0 ? 'Hoje' : diff === 1 ? 'Amanhã' : diff === -1 ? 'Ontem' : '';
+  const late = pending && diff < 0;
+  return { main: rel || wd, sub: [rel ? wd : '', late ? 'atrasada' : ''].filter(Boolean).join(' · '), cls: diff === 0 ? 'today' : late ? 'past' : '' };
+}
+function dayGroupsHTML(arr, pending = true) {
+  const groups = []; let cur = null;
+  for (const a of arr) {
+    const d = dueOf(a), k = d ? ymd(d) : 'none';
+    if (!cur || cur.k !== k) { cur = { k, info: d ? dayInfo(d, pending) : { main: 'Sem data', sub: '', cls: '' }, items: [] }; groups.push(cur); }
+    cur.items.push(a);
+  }
+  return groups.map(g => `<section class="daygroup"><div class="dayhead ${g.info.cls}"><span>${esc(g.info.main)}${g.info.sub ? `<em>${esc(g.info.sub)}</em>` : ''}</span><span class="count">${g.items.length}</span></div><div class="list-grid">${g.items.map(actItem).join('')}</div></section>`).join('');
+}
 
 /* ===================== Componentes ===================== */
 function actItem(a) {
@@ -199,43 +223,46 @@ VIEWS.home = () => {
   const late = P.filter(isOverdue), today = P.filter(isToday), soon = P.filter(isSoon);
   const total = state.activities.length, done = total - P.length, pct = total ? Math.round(done / total * 100) : 0;
   const urgent = [...late.sort((a, b) => dueOf(a) - dueOf(b)), ...today.sort((a, b) => dueOf(a) - dueOf(b)), ...soon.sort((a, b) => dueOf(a) - dueOf(b))];
-  let h = '';
+  const now = new Date(), hr = now.getHours();
+  const nm = (typeof nameOf === 'function' && state.user ? nameOf(state.user.id) : '').split(' ')[0];
+  const hi = (hr < 12 ? 'Bom dia' : hr < 18 ? 'Boa tarde' : 'Boa noite') + (nm && nm !== 'Aluno' ? ', ' + nm : '');
+  const sub = late.length ? `${late.length} atividade${late.length === 1 ? '' : 's'} atrasada${late.length === 1 ? '' : 's'} pedindo atenção` : today.length ? `${today.length} atividade${today.length === 1 ? '' : 's'} para entregar hoje` : P.length ? `${P.length} atividade${P.length === 1 ? '' : 's'} pendente${P.length === 1 ? '' : 's'}, nada para hoje` : 'Tudo em dia por aqui';
+  let main = '', side = '';
   if (!state.subjects.length) {
-    h += `<div class="card"><b style="font-size:18px">Bem-vindo(a)! 👋</b><p class="muted">Comece criando suas disciplinas. Depois cadastre atividades, anexe arquivos e acompanhe os prazos.</p><button class="btn primary block" data-a="newSubj">Criar primeira disciplina</button></div>`;
+    main += `<div class="card blk o0"><b style="font-size:18px">Bem-vindo(a)! 👋</b><p class="muted">Comece criando suas disciplinas. Depois cadastre atividades, anexe arquivos e acompanhe os prazos.</p><button class="btn primary block" data-a="newSubj">Criar primeira disciplina</button></div>`;
   }
-  h += notifBanner();
-  h += `<div class="stats">
-    <button class="stat" style="--c:var(--primary)" data-a="go" data-to="activities/today"><b>${today.length}</b><span>Vencem hoje</span></button>
-    <button class="stat" style="--c:#0ea5e9" data-a="go" data-to="activities/soon"><b>${soon.length}</b><span>Próximos ${state.settings.soonDays} dias</span></button>
-    <button class="stat" style="--c:var(--danger)" data-a="go" data-to="activities/overdue"><b>${late.length}</b><span>Atrasadas</span></button>
-    <button class="stat" style="--c:#64748b" data-a="go" data-to="activities/pending"><b>${P.length}</b><span>Pendentes no total</span></button>
-  </div>
-  <div class="card" data-a="go" data-to="progress" style="cursor:pointer"><div class="row" style="justify-content:space-between;margin-bottom:8px"><b>Progresso geral</b><span class="muted small">${done} de ${total} concluídas · ${pct}%</span></div><div class="bar"><i style="width:${pct}%"></i></div></div>`;
+  main += `<button class="hero blk o1" data-a="go" data-to="progress"><span class="hero-date">${esc(DIAS_LONGO[now.getDay()])}, ${now.getDate()} de ${esc(MESES[now.getMonth()].toLowerCase())}</span><span class="hero-hi">${esc(hi)} 👋</span><span class="hero-sub">${esc(sub)}</span><span class="hero-bar"><i style="width:${pct}%"></i></span><span class="hero-pct">${done} de ${total} concluídas · ${pct}%</span></button>`;
+  const nb = notifBanner(); if (nb) main += `<div class="blk o2">${nb}</div>`;
+  main += `<div class="stats blk o3">
+    <button class="stat" style="--c:var(--primary)" data-a="go" data-to="activities/today"><i class="si">${ICON.clock}</i><b>${today.length}</b><span>Vencem hoje</span></button>
+    <button class="stat" style="--c:#0ea5e9" data-a="go" data-to="activities/soon"><i class="si">${ICON.calendar}</i><b>${soon.length}</b><span>Próximos ${state.settings.soonDays} dias</span></button>
+    <button class="stat" style="--c:var(--danger)" data-a="go" data-to="activities/overdue"><i class="si">${ICON.bell}</i><b>${late.length}</b><span>Atrasadas</span></button>
+    <button class="stat" style="--c:#64748b" data-a="go" data-to="activities/pending"><i class="si">${ICON.list}</i><b>${P.length}</b><span>Pendentes no total</span></button>
+  </div>`;
   if (state.subjects.length) {
-    h += `<div class="card"><b>Adicionar rápido</b><div class="row" style="margin:10px 0 8px"><input id="qa-title" placeholder="O que precisa ser feito?" maxlength="120" aria-label="Título"></div>
+    side += `<div class="card blk o4"><b>Adicionar rápido</b><div class="row" style="margin:10px 0 8px"><input id="qa-title" placeholder="O que precisa ser feito?" maxlength="120" aria-label="Título"></div>
       <div class="grid2"><select id="qa-subj" aria-label="Disciplina">${state.subjects.map(s => `<option value="${s.id}">${esc((s.icon ? s.icon + ' ' : '') + s.name)}</option>`).join('')}</select><input type="date" id="qa-date" value="${ymd(addDays(new Date(), 1))}" aria-label="Data de entrega"></div>
       <div class="row" style="margin-top:10px"><button class="btn primary grow" data-a="quickAdd">Adicionar</button><button class="btn" data-a="quickMore">Mais opções</button></div></div>`;
   }
   if (urgent.length) {
-    h += `<div class="sec-head"><h2>Atenção</h2><button class="link" data-a="go" data-to="upcoming">Próximas entregas</button></div>${urgent.slice(0, 5).map(actItem).join('')}`;
-    if (urgent.length > 5) h += `<button class="btn block" data-a="go" data-to="activities/soon">Ver todas (${urgent.length})</button>`;
+    main += `<div class="blk o5"><div class="sec-head"><h2>Atenção</h2><button class="link" data-a="go" data-to="upcoming">Próximas entregas</button></div><div class="list-grid">${urgent.slice(0, 6).map(actItem).join('')}</div>${urgent.length > 6 ? `<button class="btn block" style="margin-top:6px" data-a="go" data-to="activities/soon">Ver todas (${urgent.length})</button>` : ''}</div>`;
   } else if (state.activities.length) {
-    h += `<div class="empty"><div class="big">🎉</div><b>Nada urgente!</b>Você não tem entregas atrasadas, de hoje ou dos próximos dias.</div>`;
+    main += `<div class="empty blk o5"><div class="big">🎉</div><b>Nada urgente!</b>Você não tem entregas atrasadas, de hoje ou dos próximos dias.</div>`;
   }
   if (state.subjects.length) {
-    h += `<div class="sec-head"><h2>Disciplinas</h2></div><div class="subj-grid">${state.subjects.map(s => {
+    main += `<div class="blk o6"><div class="sec-head"><h2>Disciplinas</h2></div><div class="subj-grid">${state.subjects.map(s => {
       const sp = P.filter(a => a.subjectId === s.id), ss = sp.filter(a => isToday(a) || isSoon(a)), sl = sp.filter(isOverdue);
       return `<button class="subj" style="--c:${s.color}" data-a="go" data-to="subject/${s.id}"><span class="em">${esc(s.icon || '📘')}</span><span class="nm">${esc(s.name)}</span><span class="small muted">${sp.length} pendente${sp.length === 1 ? '' : 's'}</span>${ss.length ? `<span class="small" style="color:var(--warn)">⏰ ${ss.length} com prazo próximo</span>` : ''}${sl.length ? `<span class="small late">${sl.length} atrasada${sl.length === 1 ? '' : 's'}</span>` : ''}</button>`;
-    }).join('')}<button class="subj new" data-a="newSubj"><span class="em">＋</span><span>Nova disciplina</span></button></div>`;
+    }).join('')}<button class="subj new" data-a="newSubj"><span class="em">＋</span><span>Nova disciplina</span></button></div></div>`;
   }
-  h += `<div class="sec-head"><h2>Atalhos</h2></div><div class="grid2">
+  side += `<div class="blk o7"><div class="sec-head"><h2>Atalhos</h2></div><div class="grid2">
     <button class="btn" data-a="go" data-to="upcoming">${ICON.clock} Próximas entregas</button>
-    <button class="btn" data-a="go" data-to="activities/pending">${ICON.list} Todas as tarefas</button>
+    <button class="btn" data-a="go" data-to="activities/pending">${ICON.list} Todas as pendentes</button>
     <button class="btn" data-a="go" data-to="progress">${ICON.chart} Progresso</button>
     <button class="btn" data-a="go" data-to="history">${ICON.history} Histórico</button>
     <button class="btn" data-a="go" data-to="files">${ICON.folder} Meus arquivos</button>
-    <button class="btn" data-a="go" data-to="focus">${ICON.focus} Modo foco</button></div>`;
-  return { title: 'Início', html: h };
+    <button class="btn" data-a="go" data-to="focus">${ICON.focus} Modo foco</button></div></div>`;
+  return { title: 'Início', html: `<div class="home-grid"><div class="home-main">${main}</div><div class="home-side">${side}</div></div>` };
 };
 
 /* ===================== Lista de atividades (filtros, ordenação, busca) ===================== */
@@ -260,8 +287,14 @@ function filteredActs() {
   return sortActs(arr, L.sort);
 }
 function listItemsHTML() {
-  const arr = filteredActs();
-  if (arr.length) return arr.map(actItem).join('');
+  let arr = filteredActs();
+  if (arr.length) {
+    if (L.sort === 'due') {                                   // ordenado por entrega: separa por dia
+      if (L.filter === 'done') arr = [...arr].reverse();       // concluídas: as mais recentes primeiro
+      return dayGroupsHTML(arr, L.filter !== 'done');
+    }
+    return `<div class="list-grid">${arr.map(actItem).join('')}</div>`;
+  }
   if (!state.activities.length) return emptyState('📝', 'Nenhuma atividade ainda', 'Cadastre sua primeira atividade para começar.', `<br><button class="btn primary" data-a="newAct"${L.fixed ? ` data-subj="${L.fixed}"` : ''}>Nova atividade</button>`);
   return emptyState('🔍', 'Nada por aqui', 'Nenhuma atividade corresponde a este filtro ou busca.');
 }
@@ -275,7 +308,8 @@ function listControls() {
 VIEWS.activities = arg => {
   if (state.routeChanged) { L.filter = FILTERS.some(f => f[0] === arg) ? arg : 'pending'; L.q = ''; L.subject = ''; L.sort = state.settings.defaultSort; }
   L.fixed = null;
-  return { title: 'Atividades', back: true, html: listControls(), actions: `<button class="icon-btn" data-a="newAct" aria-label="Nova atividade">${ICON.plus.replace('width="26" height="26"', 'width="22" height="22"')}</button>` };
+  const ft = (FILTERS.find(f => f[0] === L.filter) || [])[1];
+  return { title: ft === 'Pendentes' ? 'Pendentes' : 'Atividades', back: true, html: listControls(), actions: `<button class="icon-btn" data-a="newAct" aria-label="Nova atividade">${ICON.plus.replace('width="26" height="26"', 'width="22" height="22"')}</button>` };
 };
 VIEWS.subject = id => {
   const s = subj(id);
@@ -294,17 +328,7 @@ function updateList() { const el = $('#list'); if (el) el.innerHTML = listItemsH
 VIEWS.upcoming = () => {
   const P = sortActs(state.activities.filter(isPending), 'due');
   if (!P.length) return { title: 'Próximas entregas', back: true, html: emptyState('🎉', 'Sem entregas pendentes', 'Quando você cadastrar atividades, elas aparecem aqui em ordem cronológica.') };
-  const groups = [];
-  for (const a of P) {
-    const d = dueOf(a);
-    let label;
-    if (isOverdue(a)) label = 'Atrasadas';
-    else { const diff = Math.round((sod(d) - sod(new Date())) / DAY); label = diff === 0 ? 'Hoje' : diff === 1 ? 'Amanhã' : `${DIAS_LONGO[d.getDay()]}, ${pad(d.getDate())}/${pad(d.getMonth() + 1)}`; }
-    let g = groups.find(x => x.label === label);
-    if (!g) { g = { label, items: [] }; groups.push(g); }
-    g.items.push(a);
-  }
-  return { title: 'Próximas entregas', back: true, html: groups.map(g => `<div class="dayhead ${g.label === 'Hoje' ? 'today' : ''}" ${g.label === 'Atrasadas' ? 'style="color:var(--danger)"' : ''}>${g.label}<span class="muted small">${g.items.length}</span></div>${g.items.map(actItem).join('')}`).join('') };
+  return { title: 'Próximas entregas', back: true, html: `<p class="muted small" style="margin:0 0 4px">${P.length} atividade${P.length === 1 ? '' : 's'} pendente${P.length === 1 ? '' : 's'}, separadas por dia de entrega.</p>${dayGroupsHTML(P, true)}` };
 };
 
 /* ===================== Calendário ===================== */
@@ -317,7 +341,7 @@ VIEWS.calendar = () => {
   const c = state.cal, by = groupByDay();
   const dayList = (d, withAdd) => {
     const items = by[ymd(d)] || [];
-    return `<div class="dayhead ${ymd(d) === ymd(new Date()) ? 'today' : ''}"><span>${DIAS_LONGO[d.getDay()]}, ${pad(d.getDate())}/${pad(d.getMonth() + 1)}</span><button class="link" data-a="newAct" data-date="${ymd(d)}">＋ Adicionar</button></div>${items.length ? items.map(actItem).join('') : `<div class="muted small" style="padding:4px 2px 8px">Nenhuma entrega neste dia.</div>`}`;
+    return `<section class="daygroup"><div class="dayhead ${ymd(d) === ymd(new Date()) ? 'today' : ''}"><span>${DIAS_LONGO[d.getDay()]}, ${pad(d.getDate())}/${pad(d.getMonth() + 1)}</span><button class="link" data-a="newAct" data-date="${ymd(d)}">＋ Adicionar</button></div>${items.length ? `<div class="list-grid">${items.map(actItem).join('')}</div>` : `<div class="muted small" style="padding:4px 2px 8px">Nenhuma entrega neste dia.</div>`}</section>`;
   };
   let title, body;
   if (c.mode === 'month') {
@@ -328,13 +352,13 @@ VIEWS.calendar = () => {
     for (let i = 0; i < 42; i++) {
       const d = addDays(start, i), k = ymd(d), items = by[k] || [];
       const cls = [d.getMonth() !== m ? 'out' : '', k === ymd(new Date()) ? 'today' : '', k === ymd(c.sel) ? 'sel' : ''].join(' ');
-      cells += `<button class="cell ${cls}" data-a="calSel" data-d="${k}" aria-label="${fmtDate(d)}, ${items.length} atividade(s)"><span class="dn">${d.getDate()}</span><span class="dots">${items.slice(0, 3).map(a => `<i style="background:${colorOf(a)}" class="${a.status === 'done' ? 'dn2' : ''}"></i>`).join('')}${items.length > 3 ? '<b>+</b>' : ''}</span>${items.some(a => a.priority === 'high' && isPending(a)) ? '<em class="hp">!</em>' : ''}</button>`;
+      cells += `<button class="cell ${cls}" data-a="calSel" data-d="${k}" aria-label="${fmtDate(d)}, ${items.length} atividade(s)"><span class="dn">${d.getDate()}</span><span class="dots">${items.slice(0, 3).map(a => `<i style="background:${colorOf(a)}" class="${a.status === 'done' ? 'dn2' : ''}"></i>`).join('')}${items.length > 3 ? '<b>+</b>' : ''}</span><span class="evs">${items.slice(0, 3).map(a => `<span class="ev ${a.status === 'done' ? 'dn2' : ''}" style="--c:${colorOf(a)}">${esc(a.title)}</span>`).join('')}${items.length > 3 ? `<span class="more">+${items.length - 3} mais</span>` : ''}</span>${items.some(a => a.priority === 'high' && isPending(a)) ? '<em class="hp">!</em>' : ''}</button>`;
     }
-    body = `<div class="cal-grid">${cells}</div>${dayList(c.sel)}`;
+    body = `<div class="cal-wrap"><div class="cal-grid">${cells}</div><div class="cal-side">${dayList(c.sel)}</div></div>`;
   } else if (c.mode === 'week') {
     const s = addDays(sod(c.date), -c.date.getDay()), e = addDays(s, 6);
     title = `${pad(s.getDate())}/${pad(s.getMonth() + 1)} – ${pad(e.getDate())}/${pad(e.getMonth() + 1)}`;
-    body = Array.from({ length: 7 }, (_, i) => dayList(addDays(s, i))).join('');
+    body = `<div class="week-list">${Array.from({ length: 7 }, (_, i) => dayList(addDays(s, i))).join('')}</div>`;
   } else {
     title = fmtDate(c.date);
     body = dayList(c.date);
@@ -680,6 +704,7 @@ function openActDetail(id) {
     <div class="hr"></div>
     <div class="grid2"><button class="btn" data-a="editAct" data-id="${a.id}">${ICON.edit} Editar</button><button class="btn" data-a="dupAct" data-id="${a.id}">${ICON.copy} Duplicar</button>
     ${done ? '' : `<button class="btn" data-a="setDoing" data-id="${a.id}">${a.status === 'doing' ? 'Voltar a pendente' : 'Marcar em andamento'}</button><button class="btn" data-a="goFocus" data-id="${a.id}">${ICON.focus} Modo foco</button>`}
+    ${!a.postId && !a.postRemoved && state.classes.length ? `<button class="btn" data-a="publishAct" data-id="${a.id}" style="grid-column:1/-1">${ICON.users} Publicar em uma turma</button>` : ''}
     <button class="btn ghost-danger" data-a="delAct" data-id="${a.id}" style="grid-column:1/-1">${ICON.trash} Excluir</button></div>
   </div><div class="sheet-foot"><button class="btn ${done ? '' : 'primary'}" data-a="toggleSheet" data-id="${a.id}">${done ? '↩ Reabrir atividade' : '✓ Marcar como concluída'}</button></div>`);
 }

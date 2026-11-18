@@ -113,7 +113,7 @@ function muralHTML(c) {
   const list = filteredPosts(c.id);
   const canPost = myRole(c.id) === 'admin' || (c.settings && c.settings.members_can_post !== false);
   const firstUp = list.find(p => dtOf(p) >= new Date());
-  let h = canPost ? `<button class="btn primary block" style="margin-bottom:12px" data-a="newPost" data-id="${c.id}">＋ Publicar atividade</button>` : `<div class="small muted" style="margin-bottom:10px">Nesta turma só os administradores publicam.</div>`;
+  let h = canPost ? `<div class="grid2" style="margin-bottom:12px"><button class="btn primary" data-a="newPost" data-id="${c.id}">＋ Nova publicação</button><button class="btn" data-a="pickMyAct" data-id="${c.id}">${ICON.list} Publicar uma atividade que já tenho</button></div>` : `<div class="small muted" style="margin-bottom:10px">Nesta turma só os administradores publicam.</div>`;
   h += `<div class="grid2" style="margin-bottom:8px"><select id="cf-subj" aria-label="Disciplina"><option value="">Todas as disciplinas</option>${subs.map(s => `<option ${norm(CL.subject) === norm(s) ? 'selected' : ''}>${esc(s)}</option>`).join('')}</select>
     <select id="cf-when" aria-label="Prazo">${[['upcoming', 'Próximas'], ['week', 'Esta semana'], ['past', 'Prazo já passou'], ['all', 'Todas']].map(([k, l]) => `<option value="${k}" ${CL.when === k ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
     <select id="cf-mine" style="margin-bottom:12px" aria-label="Estado"><option value="">Todas (na minha agenda ou não)</option><option value="in" ${CL.mine === 'in' ? 'selected' : ''}>Já na minha agenda</option><option value="out" ${CL.mine === 'out' ? 'selected' : ''}>Ainda não adicionadas</option></select>`;
@@ -153,16 +153,18 @@ function formPostFilesHTML() {
     ...f.newFiles.map((x, i) => `<div class="crow"><div class="ext ${extOf(x.name)}" style="width:36px;height:36px">${extOf(x.name)}</div><span class="grow small" style="overflow-wrap:anywhere">${esc(x.name)} · ${fmtSize(x.size)} <i class="muted">(novo)</i></span><button class="ibtn d" data-a="ppRmNew" data-i="${i}" aria-label="Remover anexo">${ICON.x}</button></div>`)];
   return rows.join('') || '<div class="small muted" style="margin-bottom:8px">Nenhum arquivo anexado.</div>';
 }
-function openPostForm(classId, id) {
+function openPostForm(classId, id, act) {
   const p = id ? state.posts.find(x => x.id === id) : null;
-  state.form = { type: 'post', classId, id: p ? p.id : null, newFiles: [], removeIds: [] };
-  const d = p ? dtOf(p) : null;
+  const from = !p && act ? act : null, fs = from ? subj(from.subjectId) : null, ff = from ? filesOf(from.id) : [];
+  state.form = { type: 'post', classId, id: p ? p.id : null, newFiles: [], removeIds: [], actId: from ? from.id : null };
+  const d = p ? dtOf(p) : from ? dueOf(from) : null;
   openSheet(`${sheetHead(p ? 'Editar publicação' : 'Publicar atividade')}<div class="sheet-body">
-    <label class="field"><span>Título *</span><input id="pp-title" maxlength="120" value="${esc(p ? p.title : '')}" placeholder="Ex.: Lista de exercícios 3"></label>
-    <label class="field"><span>Disciplina</span><input id="pp-subj" maxlength="40" list="pp-subj-list" value="${esc(p ? p.subject_name : '')}" placeholder="Ex.: Matemática"><datalist id="pp-subj-list">${state.subjects.map(s => `<option value="${esc(s.name)}">`).join('')}</datalist></label>
+    ${from ? `<div class="banner small">Publicando a sua atividade <b>${esc(from.title)}</b>. Já veio tudo preenchido: ajuste o que quiser antes de publicar. Ela continua na sua agenda e fica ligada à publicação.</div>` : ''}
+    <label class="field"><span>Título *</span><input id="pp-title" maxlength="120" value="${esc(p ? p.title : from ? from.title : '')}" placeholder="Ex.: Lista de exercícios 3"></label>
+    <label class="field"><span>Disciplina</span><input id="pp-subj" maxlength="40" list="pp-subj-list" value="${esc(p ? p.subject_name : fs ? fs.name : '')}" placeholder="Ex.: Matemática"><datalist id="pp-subj-list">${state.subjects.map(s => `<option value="${esc(s.name)}">`).join('')}</datalist></label>
     <div class="grid2"><label class="field"><span>Data de entrega *</span><input type="date" id="pp-date" value="${d ? ymd(d) : ymd(addDays(new Date(), 1))}"></label><label class="field"><span>Horário</span><input type="time" id="pp-time" value="${d ? fmtHM(d) : '23:59'}"></label></div>
-    <label class="field"><span>Descrição ou enunciado</span><textarea id="pp-desc" maxlength="5000">${esc(p ? p.descr : '')}</textarea></label>
-    <div class="field"><span>Arquivos (até ${fmtSize(MAX_FILE_BYTES)} cada)</span><div id="pp-files"></div><button class="btn sm" data-a="ppPick">${ICON.clip} Anexar arquivos</button></div>
+    <label class="field"><span>Descrição ou enunciado</span><textarea id="pp-desc" maxlength="5000">${esc(p ? p.descr : from ? from.desc : '')}</textarea></label>
+    <div class="field"><span>Arquivos (até ${fmtSize(MAX_FILE_BYTES)} cada)</span>${ff.length ? `<label class="setrow"><input type="checkbox" id="pp-actfiles" checked>${ff.length === 1 ? 'Anexar também o arquivo desta atividade' : `Anexar também os ${ff.length} arquivos desta atividade`}</label>` : ''}<div id="pp-files"></div><button class="btn sm" data-a="ppPick">${ICON.clip} Anexar arquivos</button></div>
     <div id="pp-status" class="small muted" role="status"></div>
   </div><div class="sheet-foot"><button class="btn" data-a="closeSheet">Cancelar</button><button class="btn primary" id="pp-save" data-a="savePost">${p ? 'Salvar' : 'Publicar'}</button></div>`);
   $('#pp-files').innerHTML = formPostFilesHTML();
@@ -184,9 +186,21 @@ async function savePost() {
     let pid = f.id;
     if (!pid) { pid = uid(); await Cloud.table(c => c.from('posts').insert({ id: pid, class_id: f.classId, author_id: state.user.id, ...row })); }
     else await Cloud.table(c => c.from('posts').update(row).eq('id', pid));
+    const extra = [];
+    if (f.actId && !f.id && $('#pp-actfiles') && $('#pp-actfiles').checked) {     // arquivos da atividade original
+      for (const af of filesOf(f.actId)) {
+        try {
+          if (af.size > MAX_FILE_BYTES) throw new Error('passa do limite de tamanho');
+          status.textContent = `Preparando ${af.name}…`;
+          const blob = await Cloud.fileBlob(af);
+          extra.push(new File([blob], af.name, { type: af.type || blob.type || '' }));
+        } catch (e) { failures.push(`${af.name}: ${e.message}`); }
+      }
+    }
+    const uploads = [...f.newFiles, ...extra];
     let i = 0;
-    for (const file of f.newFiles) {
-      i++; status.textContent = `Enviando arquivo ${i} de ${f.newFiles.length}: ${file.name}`;
+    for (const file of uploads) {
+      i++; status.textContent = `Enviando arquivo ${i} de ${uploads.length}: ${file.name}`;
       try {
         const fid = uid(), path = `c/${f.classId}/${pid}/${state.user.id}/${fid}`;
         await Cloud.uploadClassFile(path, file);
@@ -197,9 +211,20 @@ async function savePost() {
       const pf = state.postfiles.find(x => x.id === rid); if (!pf) continue;
       try { await Cloud.table(c => c.from('post_files').delete().eq('id', rid)); await Cloud.removeStorage([pf.storage_path]); } catch (e) { failures.push(`remover ${pf.name}: ${e.message}`); }
     }
+    let linkNote = '';
+    if (f.actId && !f.id) {                                                         // liga a atividade pessoal à publicação
+      try {
+        if ((await Cloud.flushAll()) > 0) throw new Error('A atividade ainda não foi sincronizada.');
+        await Cloud.rpc('link_activity_to_post', { p_activity: f.actId, p_post: pid });
+      } catch (e) {
+        const raw = String((e.raw && e.raw.message) || e.message || '');
+        linkNote = /link_activity_to_post|find the function|PGRST202/i.test(raw) ? ' Falta rodar a atualização do banco (arquivo SQL 06) para ligar à sua atividade.' : ' Não foi possível ligar à sua atividade.';
+      }
+    }
     await Cloud.sync();
     closeSheet(); render();
-    if (failures.length) toast(`Publicado, mas ${failures.length} arquivo(s) falharam: ${failures[0]}. Edite a publicação para anexar de novo.`, { err: true });
+    if (linkNote) toast('Atividade publicada na turma.' + linkNote, { err: true, long: true });
+    else if (failures.length) toast(`Publicado, mas ${failures.length} arquivo(s) falharam: ${failures[0]}. Edite a publicação para anexar de novo.`, { err: true });
     else toast(f.id ? 'Publicação atualizada.' : 'Atividade publicada na turma.');
   } catch (e) {
     btn.disabled = false; btn.textContent = f.id ? 'Salvar' : 'Publicar';
@@ -293,6 +318,27 @@ Object.assign(ACT, {
     try { if (navigator.share) await navigator.share({ title: 'Convite para a turma', text }); else await copyText(text); } catch (e) { if (e.name !== 'AbortError') copyText(text); }
   },
   newPost: d => { closeSheet(true); openPostForm(d.id, null); },
+  pickMyAct: d => {
+    const list = state.activities.filter(a => !a.postId).sort((a, b) => (isPending(b) - isPending(a)) || (dueOf(a) - dueOf(b)));
+    closeSheet(true);
+    if (!list.length) return toast('Você não tem atividades na agenda para publicar. Cadastre uma primeiro.', { err: true });
+    state.form = { type: 'pickAct', classId: d.id };
+    openSheet(`${sheetHead('Publicar uma atividade minha')}<div class="sheet-body"><p class="muted" style="margin-top:0">Escolha uma atividade da sua agenda. Os dados vão preenchidos e você confere antes de publicar.</p>
+      <input id="pa-q" type="search" placeholder="Buscar atividade" aria-label="Buscar atividade" style="margin-bottom:10px">
+      <div id="pa-list">${list.map(a => { const s = subj(a.subjectId) || { name: '—', color: '#64748b' }, due = dueOf(a); return `<button class="opt" data-a="publishFromPick" data-id="${a.id}" data-q="${esc(norm(a.title + ' ' + s.name))}"><span class="oi" style="background:${esc(s.color)}22;color:${esc(s.color)}">${ICON.list}</span><span class="grow"><b style="overflow-wrap:anywhere">${esc(a.title)}</b><span class="small muted" style="display:block">${esc(s.name)} · ${due ? fmtRel(due) : ''}${isPending(a) ? '' : ' · concluída'}</span></span></button>`; }).join('')}</div></div>`);
+  },
+  publishFromPick: d => { const a = state.activities.find(x => x.id === d.id), cid = state.form && state.form.classId; if (!a || !cid) return; closeSheet(true); openPostForm(cid, null, a); },
+  publishAct: d => {                                    // botão "Publicar na turma" da tela da atividade
+    const a = state.activities.find(x => x.id === d.id); if (!a) return;
+    const ok = state.classes.filter(c => myRole(c.id) === 'admin' || !(c.settings && c.settings.members_can_post === false));
+    if (!ok.length) return toast(state.classes.length ? 'Nas suas turmas só os administradores publicam.' : 'Você ainda não participa de nenhuma turma. Crie ou entre em uma na aba Turmas.', { err: true });
+    if (!needOnline()) return;
+    closeSheet(true);
+    if (ok.length === 1) return openPostForm(ok[0].id, null, a);
+    state.form = { type: 'pickClass', actId: a.id };
+    openSheet(`${sheetHead('Publicar em qual turma?')}<div class="sheet-body">${ok.map(c => `<button class="opt" data-a="publishTo" data-c="${c.id}" data-id="${a.id}"><span class="oi">${ICON.users}</span><span class="grow"><b>${esc(c.name)}</b></span></button>`).join('')}</div>`);
+  },
+  publishTo: d => { const a = state.activities.find(x => x.id === d.id); if (!a) return; closeSheet(true); openPostForm(d.c, null, a); },
   editPost: d => { const p = state.posts.find(x => x.id === d.id); closeSheet(true); if (p) openPostForm(p.class_id, p.id); },
   ppPick: () => pickFiles(true, list => { state.form.newFiles.push(...list); $('#pp-files').innerHTML = formPostFilesHTML(); }),
   ppRmNew: d => { state.form.newFiles.splice(+d.i, 1); $('#pp-files').innerHTML = formPostFilesHTML(); },
@@ -382,4 +428,9 @@ document.addEventListener('change', e => {
   if (t.id === 'cf-subj') { CL.subject = t.value; render(); }
   else if (t.id === 'cf-when') { CL.when = t.value; render(); }
   else if (t.id === 'cf-mine') { CL.mine = t.value; render(); }
+});
+document.addEventListener('input', e => {
+  if (e.target.id !== 'pa-q') return;
+  const q = norm(e.target.value);
+  $$('#pa-list .opt').forEach(b => { b.hidden = !!q && !(b.dataset.q || '').includes(q); });
 });
