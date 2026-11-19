@@ -120,6 +120,8 @@ const ICON = {
   pause: ic('<path d="M8 5v14M16 5v14"/>', 20),
   chart: ic('<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>', 20),
   history: ic('<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/>', 20),
+  grade: ic('<path d="M12 3l2.6 5.6 6.1.7-4.5 4.2 1.2 6L12 16.6 6.6 19.5l1.2-6L3.3 9.3l6.1-.7z"/>'),
+  table: ic('<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 4v16M15 4v16"/>'),
   clock: ic('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>', 20),
   list: ic('<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>', 20),
   bell: ic('<path d="M6 9a6 6 0 0 1 12 0c0 6 2 7 2 7H4s2-1 2-7M10 20a2 2 0 0 0 4 0"/>', 20),

@@ -120,7 +120,7 @@ function closeSheet(keepHistory) {
 const sheetHead = t => `<div class="sheet-head"><h2>${esc(t)}</h2><button class="icon-btn" data-a="closeSheet" aria-label="Fechar">${ICON.x}</button></div>`;
 
 /* ===================== Roteamento e renderização ===================== */
-const TAB = { home: 'home', subject: 'home', activities: 'home', upcoming: 'home', progress: 'home', history: 'home', focus: 'home', search: 'home', calendar: 'calendar', files: 'home', classes: 'classes', class: 'classes', settings: 'settings' };
+const TAB = { home: 'home', subject: 'home', activities: 'home', upcoming: 'home', progress: 'home', history: 'home', focus: 'home', grades: 'home', schedule: 'home', search: 'home', calendar: 'calendar', files: 'home', classes: 'classes', class: 'classes', settings: 'settings' };
 const VIEWS = {};
 let lastKey = '';
 
@@ -145,7 +145,7 @@ function render() {
   view.dataset.v = r.name;
   const tab = TAB[r.name] || 'home';
   const items = [['home', 'Início', ICON.home], ['calendar', 'Calendário', ICON.calendar], ['add', 'Adicionar', ICON.plus], ['classes', 'Turmas', ICON.users], ['settings', 'Perfil', ICON.user]];
-  const side = [['activities/pending', 'Pendentes', ICON.list], ['upcoming', 'Próximas entregas', ICON.clock], ['files', 'Meus arquivos', ICON.folder], ['progress', 'Progresso', ICON.chart], ['history', 'Histórico', ICON.history], ['focus', 'Modo foco', ICON.focus]];
+  const side = [['activities/pending', 'Pendentes', ICON.list], ['upcoming', 'Próximas entregas', ICON.clock], ['files', 'Meus arquivos', ICON.folder], ['progress', 'Progresso', ICON.chart], ['history', 'Histórico', ICON.history], ['schedule', 'Horário de aulas', ICON.table], ['grades', 'Notas', ICON.grade], ['focus', 'Modo foco', ICON.focus]];
   const sideOn = to => { const [n, a] = to.split('/'); return r.name === n && (!a || r.arg === a || (n === 'activities' && L.filter === a)); };
   $('#nav').innerHTML = `<div class="brand"><img src="icons/icon-192.png" alt="" width="38" height="38"><span>Lume</span></div>`
     + items.map(([k, l, i]) => k === 'add'
@@ -242,8 +242,10 @@ VIEWS.home = () => {
   if (state.subjects.length) {
     side += `<div class="card blk o4"><b>Adicionar rápido</b><div class="row" style="margin:10px 0 8px"><input id="qa-title" placeholder="O que precisa ser feito?" maxlength="120" aria-label="Título"></div>
       <div class="grid2"><select id="qa-subj" aria-label="Disciplina">${state.subjects.map(s => `<option value="${s.id}">${esc((s.icon ? s.icon + ' ' : '') + s.name)}</option>`).join('')}</select><input type="date" id="qa-date" value="${ymd(addDays(new Date(), 1))}" aria-label="Data de entrega"></div>
+      <div id="qa-next"></div>
       <div class="row" style="margin-top:10px"><button class="btn primary grow" data-a="quickAdd">Adicionar</button><button class="btn" data-a="quickMore">Mais opções</button></div></div>`;
   }
+  if (typeof todayClassesHTML === 'function') main += todayClassesHTML();
   if (urgent.length) {
     main += `<div class="blk o5"><div class="sec-head"><h2>Atenção</h2><button class="link" data-a="go" data-to="upcoming">Próximas entregas</button></div><div class="list-grid">${urgent.slice(0, 6).map(actItem).join('')}</div>${urgent.length > 6 ? `<button class="btn block" style="margin-top:6px" data-a="go" data-to="activities/soon">Ver todas (${urgent.length})</button>` : ''}</div>`;
   } else if (state.activities.length) {
@@ -258,11 +260,13 @@ VIEWS.home = () => {
   side += `<div class="blk o7"><div class="sec-head"><h2>Atalhos</h2></div><div class="grid2">
     <button class="btn" data-a="go" data-to="upcoming">${ICON.clock} Próximas entregas</button>
     <button class="btn" data-a="go" data-to="activities/pending">${ICON.list} Todas as pendentes</button>
+    <button class="btn" data-a="go" data-to="schedule">${ICON.table} Horário de aulas</button>
+    <button class="btn" data-a="go" data-to="grades">${ICON.grade} Notas</button>
     <button class="btn" data-a="go" data-to="progress">${ICON.chart} Progresso</button>
     <button class="btn" data-a="go" data-to="history">${ICON.history} Histórico</button>
     <button class="btn" data-a="go" data-to="files">${ICON.folder} Meus arquivos</button>
     <button class="btn" data-a="go" data-to="focus">${ICON.focus} Modo foco</button></div></div>`;
-  return { title: 'Início', html: `<div class="home-grid"><div class="home-main">${main}</div><div class="home-side">${side}</div></div>` };
+  return { title: 'Início', after: () => updateNextClass(), html: `<div class="home-grid"><div class="home-main">${main}</div><div class="home-side">${side}</div></div>` };
 };
 
 /* ===================== Lista de atividades (filtros, ordenação, busca) ===================== */
@@ -625,6 +629,7 @@ function openActForm(o = {}) {
     <label class="field"><span>Tipo</span><select id="f-type">${types.map(x => `<option ${a && a.type === x ? 'selected' : ''}>${esc(x)}</option>`).join('')}<option value="__new">Outro (personalizado)…</option></select></label></div>
     <label class="field" id="f-type-new-wrap" hidden><span>Nome do novo tipo</span><input id="f-type-new" maxlength="40"></label>
     <div class="grid2"><label class="field"><span>Data de entrega *</span><input type="date" id="f-date" value="${d}"></label><label class="field"><span>Horário</span><input type="time" id="f-time" value="${t}"></label></div>
+    <div id="f-nextclass"></div>
     <div class="field"><span>Prioridade</span><div class="seg">${[['low', 'Baixa'], ['mid', 'Média'], ['high', 'Alta']].map(([k, l]) => `<label><input type="radio" name="prio" value="${k}" ${(a ? a.priority : 'mid') === k ? 'checked' : ''}><span>${l}</span></label>`).join('')}</div></div>
     <label class="field"><span>Status</span><select id="f-status">${Object.entries(STATUS).map(([k, l]) => `<option value="${k}" ${(a ? a.status : 'pending') === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
     <label class="field"><span>Descrição e instruções</span><textarea id="f-desc" maxlength="3000">${esc(a ? a.desc : '')}</textarea></label>
@@ -636,7 +641,7 @@ function openActForm(o = {}) {
     <div id="f-rem-box">${REM_OPTIONS.map(([k, l]) => `<label class="setrow"><input type="checkbox" name="rem" value="${k}" ${(rem.keys || []).includes(k) ? 'checked' : ''}>${l}</label>`).join('')}
     <div class="small muted" style="margin:8px 0 6px">Horários personalizados</div><div id="f-rem-c">${(rem.custom || []).map(remRow).join('')}</div><button class="btn sm" data-a="addRem">＋ Horário personalizado</button></div>
   </div><div class="sheet-foot"><button class="btn" data-a="closeSheet">Cancelar</button><button class="btn primary" data-a="saveAct">Salvar</button></div>`);
-  renderFormFiles();
+  renderFormFiles(); updateNextClass();
   setTimeout(() => { if (!a) { const el = $('#f-title'); el && el.focus(); } }, 250);
 }
 function renderFormFiles() { const el = $('#f-files'); if (el) el.innerHTML = formFilesHTML(); }
